@@ -17,6 +17,7 @@ namespace TheKangarooCourt.ConsoleApplication
         /// The url to poll
         /// </summary>
         public string Url { get; set; }
+        public int PollInterval { get; set; }
     }
 
     class Program
@@ -87,7 +88,7 @@ namespace TheKangarooCourt.ConsoleApplication
                 // a fluent interface to build a schedule
                 .WithSimpleSchedule(x => x
                     // Here we specify the interval
-                    .WithIntervalInSeconds(10)
+                    .WithIntervalInSeconds(_options.PollInterval)
                     .RepeatForever()
                 )
                 .Build();
@@ -102,12 +103,16 @@ namespace TheKangarooCourt.ConsoleApplication
             if (_options == null)
                 _options = new WorkerOptions();
 
-            // Try to read the RunImmediately value from app.config
             string configUrl = ConfigurationManager.AppSettings["Url"];
-
             if (!String.IsNullOrEmpty(configUrl))
             {
                 _options.Url = configUrl;
+            }
+
+            string pollInterval = ConfigurationManager.AppSettings["PollIntervalInSeconds"];
+            if (!String.IsNullOrEmpty(pollInterval))
+            {
+                _options.PollInterval = int.Parse(pollInterval);
             }
         }
     }
