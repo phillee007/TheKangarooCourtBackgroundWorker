@@ -132,8 +132,9 @@ namespace TheKangarooCourt.ConsoleApplication
             //WebClient client = new WebClient();
             //string reply = client.DownloadString(url);
 
-            System.Net.WebRequest request = System.Net.WebRequest.Create(url);
+            HttpWebRequest request = (HttpWebRequest)System.Net.WebRequest.Create(url);
             request.Method = "HEAD";
+            request.UserAgent = "Scheduled task poller";
             var response = request.GetResponse();
             using (var reader = new StreamReader(response.GetResponseStream()))
             {
