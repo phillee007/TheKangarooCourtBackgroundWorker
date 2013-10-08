@@ -18,6 +18,7 @@ namespace TheKangarooCourt.ConsoleApplication
         /// </summary>
         public string Url { get; set; }
         public int PollInterval { get; set; }
+        public string PostValues { get; set; }
     }
 
     class Program
@@ -72,6 +73,7 @@ namespace TheKangarooCourt.ConsoleApplication
 
             // Put options into data map
             _pollingJobDetail.JobDataMap.Put("Url", _options.Url);
+            _pollingJobDetail.JobDataMap.Put("PostValues", _options.PostValues);
         }
 
         private static void ScheduleJob()
@@ -114,6 +116,12 @@ namespace TheKangarooCourt.ConsoleApplication
             {
                 _options.PollInterval = int.Parse(pollInterval);
             }
+
+            string postValues = ConfigurationManager.AppSettings["PostValues"];
+            if (!String.IsNullOrEmpty(postValues))
+            {
+                _options.PostValues = postValues;
+            }
         }
     }
 
@@ -124,23 +132,31 @@ namespace TheKangarooCourt.ConsoleApplication
     {
         public void Execute(IJobExecutionContext context)
         {
+            Console.WriteLine("***** Executing *****");
+            var url = context.MergedJobDataMap["Url"] as string;
+            string postValues = context.MergedJobDataMap["PostValues"] as string;
+
+            using (WebClient wc = new WebClient())
+            {
+                wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
+                string result = wc.UploadString(url, postValues);
+                Console.WriteLine(result);
+            }
 
             // Read the values from our merged (final) data map
-            var url = context.MergedJobDataMap["Url"] as string;
-            Console.WriteLine("***** Executing *****");
+            
 
             //WebClient client = new WebClient();
             //string reply = client.DownloadString(url);
 
-            HttpWebRequest request = (HttpWebRequest)System.Net.WebRequest.Create(url);
-            request.Method = "HEAD";
-            request.UserAgent = "Scheduled task poller";
-            var response = request.GetResponse();
-            using (var reader = new StreamReader(response.GetResponseStream()))
-            {
-                string result = reader.ReadToEnd(); // do something fun...
-                Console.WriteLine(result);
-            }
+           //// request.Method = "HEAD";
+           // request.UserAgent = "Scheduled task poller";
+           // var response = request.GetResponse();
+           // using (var reader = new StreamReader(response.GetResponseStream()))
+           // {
+           //     string result = reader.ReadToEnd(); // do something fun...
+           //     Console.WriteLine(result);
+           // }
 
             
 
