@@ -139,7 +139,7 @@ namespace TheKangarooCourt.ConsoleApplication
             using (WebClient wc = new WebClient())
             {
                 wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
-                string result = wc.UploadString(url + "?" + postValues, postValues);
+                string result = wc.UploadString(url, postValues);
                 Console.WriteLine(result);
             }
 
