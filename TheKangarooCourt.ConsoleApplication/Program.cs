@@ -1,4 +1,5 @@
-﻿using Quartz;
+﻿using Newtonsoft.Json;
+using Quartz;
 using Quartz.Impl;
 using System;
 using System.Collections.Generic;
@@ -19,14 +20,14 @@ namespace TheKangarooCourt.ConsoleApplication
         public string Url { get; set; }
         public int PollInterval { get; set; }
         public string PostValues { get; set; }
+        public string HttpMethod { get; set; }
+        public string Name { get; set; }
     }
 
     class Program
     {
         private static readonly ISchedulerFactory SchedulerFactory;
         private static readonly IScheduler Scheduler;
-        private static IJobDetail _pollingJobDetail;
-        private static WorkerOptions _options;
 
         static Program()
         {
@@ -40,88 +41,83 @@ namespace TheKangarooCourt.ConsoleApplication
         static void Main(string[] args)
         {
 
-            // Read our options from config (provided locally 
-            // or via cloud host)
-            ReadOptionsFromConfig();
-
             // Now let's start our scheduler; you could perform
             // any processing or bootstrapping code here before
             // you start it but it must be started to schedule
             // any jobs
             Scheduler.Start();
 
-            // Let's generate our polling job detail now
-            CreateJob();
+            //Easy way to stop the program if needed (for example when doing updates to the web app)
+            var runJobs = bool.Parse(ConfigurationManager.AppSettings["RunJobs"]);
+            if (!runJobs)
+            {
+                return;
+            }
 
-            // And finally, schedule the job
-            ScheduleJob();
+            var jobList = ReadJobListFromConfig();
+            foreach (var job in jobList)
+            {
+                // Let's generate our polling job detail now
+                var jobDetail = CreateJob(job);
+                
+                // And finally, schedule the job
+                ScheduleJob(jobDetail, job);
+            }
 
             // Run immediately?
 
-            Scheduler.TriggerJob(new JobKey("StartPolling"));
+           // Scheduler.TriggerJob(new JobKey("StartPolling"));
         }
 
-        private static void CreateJob()
+        private static IJobDetail CreateJob(WorkerOptions options)
         {
-
             // The job builder uses a fluent interface to
             // make it easier to build and generate an
             // IJobDetail object
-            _pollingJobDetail = JobBuilder.Create<PollWebsiteJob>()
-                .WithIdentity("StartPolling")   // Here we can assign a friendly name to our job        
+            var pollingJobDetail = JobBuilder.Create<PollWebsiteJob>()
+                .WithIdentity(options.Name)   // Here we can assign a friendly name to our job        
                 .Build();                       // And now we build the job detail
 
             // Put options into data map
-            _pollingJobDetail.JobDataMap.Put("Url", _options.Url);
-            _pollingJobDetail.JobDataMap.Put("PostValues", _options.PostValues);
+            pollingJobDetail.JobDataMap.Put("Url", options.Url);
+            pollingJobDetail.JobDataMap.Put("HttpMethod", options.HttpMethod);
+            if (!String.IsNullOrEmpty(options.PostValues))
+            {
+                pollingJobDetail.JobDataMap.Put("PostValues", options.PostValues);
+            }
+
+            return pollingJobDetail;
         }
 
-        private static void ScheduleJob()
+        private static void ScheduleJob(IJobDetail jobDetail, WorkerOptions options)
         {
 
             // Let's create a trigger
             ITrigger trigger = TriggerBuilder.Create()
 
                 // A description helps other people understand what you want
-                .WithDescription("Every two minutes")
+                .WithDescription(String.Format("Every {0} seconds", options.PollInterval))
 
                 // A daily time schedule gives you a
                 // DailyTimeIntervalScheduleBuilder which provides
                 // a fluent interface to build a schedule
                 .WithSimpleSchedule(x => x
                     // Here we specify the interval
-                    .WithIntervalInSeconds(_options.PollInterval)
+                    .WithIntervalInSeconds(options.PollInterval)
                     .RepeatForever()
                 )
+                .StartNow()
                 .Build();
 
             // Ask the scheduler to schedule our EmailJob
-            Scheduler.ScheduleJob(_pollingJobDetail, trigger);
+            Scheduler.ScheduleJob(jobDetail, trigger);
         }
 
-        private static void ReadOptionsFromConfig()
+        private static IList<WorkerOptions> ReadJobListFromConfig()
         {
-            // Make sure we have options to change
-            if (_options == null)
-                _options = new WorkerOptions();
-
-            string configUrl = ConfigurationManager.AppSettings["Url"];
-            if (!String.IsNullOrEmpty(configUrl))
-            {
-                _options.Url = configUrl;
-            }
-
-            string pollInterval = ConfigurationManager.AppSettings["PollIntervalInSeconds"];
-            if (!String.IsNullOrEmpty(pollInterval))
-            {
-                _options.PollInterval = int.Parse(pollInterval);
-            }
-
-            string postValues = ConfigurationManager.AppSettings["PostValues"];
-            if (!String.IsNullOrEmpty(postValues))
-            {
-                _options.PostValues = postValues;
-            }
+            // Job List is just a JSON serialized array of job entries
+            var jobs = ConfigurationManager.AppSettings["AllJobs"];
+            return JsonConvert.DeserializeObject<List<WorkerOptions>>(jobs);
         }
     }
 
@@ -134,31 +130,23 @@ namespace TheKangarooCourt.ConsoleApplication
         {
             Console.WriteLine("***** Executing *****");
             var url = context.MergedJobDataMap["Url"] as string;
+            var httpMethod = context.MergedJobDataMap["HttpMethod"] as string;
             string postValues = context.MergedJobDataMap["PostValues"] as string;
 
             using (WebClient wc = new WebClient())
             {
-                wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
-                string result = wc.UploadString(url, postValues);
-                Console.WriteLine(result);
-            }
-
-            // Read the values from our merged (final) data map
-            
-
-            //WebClient client = new WebClient();
-            //string reply = client.DownloadString(url);
-
-           //// request.Method = "HEAD";
-           // request.UserAgent = "Scheduled task poller";
-           // var response = request.GetResponse();
-           // using (var reader = new StreamReader(response.GetResponseStream()))
-           // {
-           //     string result = reader.ReadToEnd(); // do something fun...
-           //     Console.WriteLine(result);
-           // }
-
-            
+                if (httpMethod == "POST")
+                {
+                    wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
+                    string result = wc.UploadString(url, postValues);
+                    Console.WriteLine(result);
+                }
+                else
+                {
+                    var result = wc.DownloadString(url);
+                    Console.WriteLine(result);
+                }
+            }            
 
             Console.WriteLine("***** Executed *****");
 
