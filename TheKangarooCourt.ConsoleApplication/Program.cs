@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using log4net;
+using Newtonsoft.Json;
 using Quartz;
 using Quartz.Impl;
 using System;
@@ -26,6 +27,7 @@ namespace TheKangarooCourt.ConsoleApplication
 
     class Program
     {
+        private static readonly ILog Logger = LogManager.GetLogger(typeof(Program));
         private static readonly ISchedulerFactory SchedulerFactory;
         private static readonly IScheduler Scheduler;
 
@@ -79,6 +81,7 @@ namespace TheKangarooCourt.ConsoleApplication
                 .Build();                       // And now we build the job detail
 
             // Put options into data map
+            pollingJobDetail.JobDataMap.Put("JobName", options.Name);
             pollingJobDetail.JobDataMap.Put("Url", options.Url);
             pollingJobDetail.JobDataMap.Put("HttpMethod", options.HttpMethod);
             if (!String.IsNullOrEmpty(options.PostValues))
@@ -126,29 +129,40 @@ namespace TheKangarooCourt.ConsoleApplication
     /// </summary>
     public class PollWebsiteJob : IJob
     {
+        private static readonly ILog Logger = LogManager.GetLogger(typeof(PollWebsiteJob));
+
         public void Execute(IJobExecutionContext context)
         {
-            Console.WriteLine("***** Executing *****");
+            var name = context.MergedJobDataMap["JobName"] as string;
             var url = context.MergedJobDataMap["Url"] as string;
             var httpMethod = context.MergedJobDataMap["HttpMethod"] as string;
             string postValues = context.MergedJobDataMap["PostValues"] as string;
 
+            Logger.Debug("Executing job: " + name);
+
             using (WebClient wc = new WebClient())
             {
-                if (httpMethod == "POST")
+                try
                 {
-                    wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
-                    string result = wc.UploadString(url, postValues);
-                    Console.WriteLine(result);
+
+                    if (httpMethod == "POST")
+                    {
+                        wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
+                        string result = wc.UploadString(url, postValues);
+                        Logger.Debug("Executed job: " + name);
+                    }
+                    else
+                    {
+                        var result = wc.DownloadString(url);
+                        Logger.Debug("Executed job: " + name);
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    var result = wc.DownloadString(url);
-                    Console.WriteLine(result);
+                    Logger.Error(ex.ToString(), ex);
+                    Logger.Debug("Job failed: " + name);
                 }
             }            
-
-            Console.WriteLine("***** Executed *****");
 
 
         }
