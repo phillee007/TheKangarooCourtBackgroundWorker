@@ -1,4 +1,5 @@
 ﻿using log4net;
+using log4net.Config;
 using Newtonsoft.Json;
 using Quartz;
 using Quartz.Impl;
@@ -33,7 +34,7 @@ namespace TheKangarooCourt.ConsoleApplication
 
         static Program()
         {
-
+            XmlConfigurator.Configure();
             // Create a regular old Quartz scheduler
             SchedulerFactory = new StdSchedulerFactory();
             Scheduler = SchedulerFactory.GetScheduler();
