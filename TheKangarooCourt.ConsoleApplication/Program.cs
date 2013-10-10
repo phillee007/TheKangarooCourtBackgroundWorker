@@ -96,6 +96,8 @@ namespace TheKangarooCourt.ConsoleApplication
         private static void ScheduleJob(IJobDetail jobDetail, WorkerOptions options)
         {
 
+            Logger.DebugFormat("Scheduling job - {0} - to run every {1} seconds", options.Name, options.PollInterval);
+
             // Let's create a trigger
             ITrigger trigger = TriggerBuilder.Create()
 
