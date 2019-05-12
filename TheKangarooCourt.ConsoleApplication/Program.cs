@@ -60,6 +60,7 @@ namespace TheKangarooCourt.ConsoleApplication
             //https://stackoverflow.com/questions/5420656/unable-to-read-data-from-the-transport-connection-an-existing-connection-was-f
             System.Net.ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
 
+
             var jobList = ReadJobListFromConfig();
             foreach (var job in jobList)
             {
