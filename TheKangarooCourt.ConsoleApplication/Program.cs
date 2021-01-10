@@ -154,7 +154,8 @@ namespace TheKangarooCourt.ConsoleApplication
 
                     if (httpMethod == "POST")
                     {
-                        wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
+                        wc.Headers[HttpRequestHeader.Accept] = "application/json";
+                        wc.Headers[HttpRequestHeader.ContentType] = "application/json";
                         string result = wc.UploadString(url, postValues);
                         Logger.Debug("Executed job: " + name);
                     }
